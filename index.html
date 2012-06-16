@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <meta charset="utf-8">
+        <title>COEMU: System Designer</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="DCPU-16 Emulator with hardware manangement">
+        <meta name="author" content="Bryon Vandiver">
+
+        <link href="css/bootstrap.css" rel="stylesheet">
+        <style>
+        [draggable] {
+            -moz-user-select: none;
+            -khtml-user-select: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
+        }
+        </style>
+        <link href="css/bootstrap-responsive.css" rel="stylesheet">
+
+        <script type='text/javascript' src='js/handlebars.js'> </script>
+        <script type='text/javascript' src='js/jquery.js'> </script>
+        <script type='text/javascript' src='js/bootstrap.js'> </script>
+        
+        <script type='text/javascript' src='js/devices/dcpu.js'> </script>
+        <script type='text/javascript' src='js/devices/clock.js'> </script>
+        <script type='text/javascript' src='js/devices/keyboard.js'> </script>
+        <script type='text/javascript' src='js/devices/lem1802.js'> </script>
+        <script type='text/javascript' src='js/devices/hmd2043.js'> </script>
+        <script type='text/javascript' src='js/devices/hmu1440.js'> </script>
+        <script type='text/javascript' src='js/coemu.js'> </script>
+    </head>
+
+    <body>
+        <div class="navbar navbar-fixed-top">
+            <div class="navbar-inner">
+                <div class="container-fluid">
+                    <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </a>
+                    <a class="brand" href="#">COEMU: System Designer</a>
+                    <div class="nav-collapse">
+                        <ul class="nav">
+                            <li><a data-toggle="modal" href="#about">About</a></li>
+                        </ul>
+                    </div>
+
+                    <div class="btn-group pull-right">
+                        <a class="btn btn-primary" id="add-machine" href="#">
+                            <i class="icon-plus-sign icon-white"></i> Add Machine
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="container">
+            <div class='row'>
+                <div id='side-bar' class='span3'  style="position: fixed;">
+                    <div id='binary-image-list' class="well" style="padding: 8px 0;">
+                    </div>                
+                    <div>
+                        <p>To add more images, drag and drop files into the field</p>
+                    </div>
+                </div>
+                <div id='master-list' class='offset3 span9'>
+                </div>
+            </div>
+        </div>
+        
+        <!-- BEGIN MODAL DIALOGS -->
+        <div class="modal" style="display: none;" id="about">
+            <div class="modal-header">
+                <button class="close" data-dismiss="modal"><i class="icon-remove"></i></button>
+                <h3>COEMU: System Designer</h3>
+            </div>
+            <div class="modal-body">
+                <p>
+                    This is a pet project designed by Bryon Vandiver to
+                    create complex DCPU based systems using a plugin based
+                    architecture.  Creates a drag-and-drop style system
+                    for wiring up various devices.
+                </p>
+                
+                <p>
+                    <b>Please note:</b> I provide a vendor extension.  The
+                    running DCPU always maps to itself as device 0xFFFF.
+                    I also allow DCPUs to be attached to one another.  This
+                    is not offically allowed by
+                    <a target='_blank' href='http://twitter.com/notch'>@notch</a>
+                    but I did it anyway.
+                </p>
+
+                <p>
+                    Bryon Vandiver: <a href='mailto:unicdk@gmail.com'>unicdk@gmail.com</a>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <a href="#" class="btn btn-primary" data-dismiss="modal">Close</a>
+            </div>
+        </div>
+
+        <div hidden id="templates">
+            <div id="binaries-template">
+                <ul class="nav nav-list">
+                    <li class="nav-header">Binaries</li>
+                    {{#each binaries}}
+                    <li class='binary-image' id="{{this.id}}">
+                        <a href='#' class='close' style="float:right;"><i data-id="{{this.id}}" class='icon-remove'></i></a>
+                        <a href="#" draggable="true" data-id="{{this.id}}"><i class="icon-qrcode"></i> {{this.name}}</a>
+                        <div style="clear: both;"></div>
+                    </li>
+                    {{/each}}
+                </ul>
+            </div>
+
+            <div id="image-name-template">
+                <i class="icon-qrcode"></i> {{this.name}}
+            </div>
+            
+            <div id="device-list-template">
+                <div class="btn-group">
+                    <a class="btn dropdown-toggle btn-primary" data-toggle="dropdown" href="#">
+                    <i class="icon-plus-sign icon-white"></i> Attach Device
+                    <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                    {{#each devices}}
+                        <li><a href="#" class='device' data-index="{{this.index}}">{{this.name}}</a><li>
+                    {{/each}}
+                    </ul>
+                </div>
+            </div>
+            
+            <div id="dcpu-template">
+                <div id="{{id}}" data-id="{{id}}" data-number="{{number}}" class='well'>
+                    <div id='dcpu' class='row-fluid'>                        
+                        <div class='row-fluid'>
+                            <div class="span4 dcpu-devices">
+                                <div class="well" style='padding: 8px;'>
+                                    <h3>
+                                        <a href="#" draggable="true" data-number="{{number}}" data-id="{{id}}""><span class='label'><i class="icon-magnet icon-white"></i></span></a>
+                                        <small>#{{number}}</small> DCPU
+                                    </h3>
+                                    <h6 class='image-name'>No image inserted</h6>
+                                </div>
+                            </div>
+                            <div class="span8">
+                                <div class="btn-toolbar control-list">
+                                    <a href='#' class='close'><i style="float:right;" class='icon-remove'></i></a>
+                                    <div class='btn-group'>
+                                        <a href='#' class='btn btn-small btn-success run-button'>Run</a>
+                                        <a href='#' class='btn btn-small step-button'>Step</a>
+                                        <a href='#' class='btn btn-small reset-button'>Reset</a>
+                                    </div>
+                                </div>
+                                
+                                <table>
+                                    <th>
+                                        <td colspan=2>Registers</td>       
+                                    </th>
+                                    <tr>
+                                        <td>PC</td><td class='reg-pc register'>0000</td>
+                                        <td class='dis-addr-0'></td>
+                                        <td class='dis-addr-0'></td>
+                                    </tr>
+                                    <tr><td>SP</td><td class='reg-sp register'>0000</td></tr>
+                                    <tr><td>EX</td><td class='reg-ex register'>0000</td></tr>
+                                    <tr><td>A</td><td class='reg-a register'>0000</td></tr>
+                                    <tr><td>B</td><td class='reg-b register'>0000</td></tr>
+                                    <tr><td>C</td><td class='reg-c register'>0000</td></tr>
+                                    <tr><td>X</td><td class='reg-x register'>0000</td></tr>
+                                    <tr><td>Y</td><td class='reg-y register'>0000</td></tr>
+                                    <tr><td>Z</td><td class='reg-z register'>0000</td></tr>
+                                    <tr><td>I</td><td class='reg-i register'>0000</td></tr>
+                                    <tr><td>J</td><td class='reg-j register'>0000</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="dcpu-slave-template">
+                <div id='{{id}}' class="slave-{{id}} well" style="padding: 8px;">
+                    <a href='#' class='close'><i style="float:right;" class='icon-remove'></i></a>
+                    <h6><span class="label">DCPU Slave</span> Device {{number}}</h6>
+                </div>
+            </div>
+            
+            <div id="lem1802-template">
+                <div id='{{id}}' data-number="{{number}}" class="well" style="padding: 8px;">
+                    <a href='#' class='close'><i style="float:right;" class='icon-remove'></i></a>
+                    <span class="label">LEM-1802</span>
+                    <canvas class='lem-screen' width='144' height='112' style="background:black; width:100%;"></canvas>
+                </div>
+            </div>
+            
+            <div id="hmd2043-template">
+                <div id='{{id}}' data-number="{{number}}" class="well" style="padding: 8px;">
+                    <a href='#' class='close'><i style="float:right;" class='icon-remove'></i></a>
+                    <span class="label">HMD-2043</span>
+                    <h6>
+                        <span class="read-led label">&nbsp;</span>
+                        <span class="write-led label">&nbsp;</span>
+                        <span class="disk-name">Drive empty</span>
+                        <a href='#' class='eject-button' style='display: none;'><i class="icon-eject" style='float:right;'></i></a>
+                    </h6>
+                </div>
+            </div>
+    
+            <div id="clock-template">
+                <div id='{{id}}' data-number="{{number}}" class="well" style="padding: 8px;">
+                    <a href='#' class='close'><i style="float:right;" class='icon-remove'></i></a>
+                    <span class="label">Generic Clock</span>
+                </div>
+            </div>
+            
+            <div id="keyboard-template">
+                <div id='{{id}}' data-number="{{number}}" class="well" style="padding: 8px;">
+                    <a href='#' class='close'><i style="float:right;" class='icon-remove'></i></a>
+                    <span class="label">Generic Keyboard</span>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
